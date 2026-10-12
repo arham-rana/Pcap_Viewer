@@ -1,0 +1,14 @@
+services:
+  traceline:
+    build: .
+    image: traceline-pcap-analyzer:latest
+    ports:
+      - "8080:5000"
+    volumes:
+      - traceline-uploads:/app/uploads
+    environment:
+      - MAX_UPLOAD_MB=200
+    restart: unless-stopped
+
+volumes:
+  traceline-uploads:

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TraceLine — SIP/RTP Capture Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="26" height="26">
+          <path d="M2 16 H9 L12 6 L17 26 L21 16 H30" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <div class="brand-text">
+        <span class="brand-name">TraceLine</span>
+        <span class="brand-sub">SIP / RTP capture analyzer</span>
+      </div>
+    </div>
+
+    <div class="upload-zone">
+      <label class="upload-btn" id="uploadBtn">
+        <input type="file" id="fileInput" accept=".pcap,.pcapng,.cap" hidden>
+        <svg viewBox="0 0 20 20" width="16" height="16"><path fill="currentColor" d="M10 3l4.5 4.5-1.4 1.4L11 6.8V13H9V6.8L6.9 8.9 5.5 7.5 10 3zM4 15h12v2H4z"/></svg>
+        <span id="uploadBtnLabel">Upload capture file</span>
+      </label>
+      <span class="file-name" id="fileName"></span>
+    </div>
+  </header>
+
+  <div class="statusline" id="statusline" hidden></div>
+
+  <nav class="tabs" id="tabs" hidden>
+    <button class="tab active" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="callflow">SIP Call Flow</button>
+    <button class="tab" data-tab="rtp">RTP Streams</button>
+    <button class="tab" data-tab="conversations">Conversations</button>
+    <button class="tab" data-tab="dns">DNS</button>
+    <button class="tab" data-tab="tcp">TCP Streams</button>
+    <button class="tab" data-tab="other">Other Protocols</button>
+    <button class="tab" data-tab="packets">Packet List</button>
+  </nav>
+
+  <main class="content">
+
+    <section class="empty-state" id="emptyState">
+      <svg viewBox="0 0 120 60" width="180" height="90" class="empty-trace">
+        <polyline points="0,30 20,30 26,10 34,50 42,30 120,30" fill="none" stroke="currentColor" stroke-width="2"/>
+      </svg>
+      <h1>Drop in a capture, see the call.</h1>
+      <p>Upload a .pcap / .pcapng file to reconstruct SIP signaling into a call-flow ladder diagram, surface every RTP media stream, and browse the full packet record.</p>
+    </section>
+
+    <section class="tab-panel" id="panel-overview" hidden>
+      <div class="grid-overview" id="overviewGrid"></div>
+    </section>
+
+    <section class="tab-panel" id="panel-callflow" hidden>
+      <div class="callflow-controls">
+        <label for="callSelect">Call</label>
+        <select id="callSelect"></select>
+        <div class="callflow-meta" id="callflowMeta"></div>
+      </div>
+      <div class="diagram-scroll">
+        <svg id="callflowSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-rtp" hidden>
+      <div class="table-wrap">
+        <table class="data-table" id="rtpTable">
+          <thead>
+            <tr>
+              <th>#</th><th>Source</th><th>Destination</th><th>SSRC</th>
+              <th>PT</th><th>Codec</th><th>Packets</th><th>Duration</th>
+              <th>Avg pps</th><th>Jitter</th><th>Loss</th><th>Out-of-order</th><th>Est. MOS</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint-text">MOS is a rough estimate from loss and jitter only — real call quality also depends on codec and end-to-end delay this tool can't observe.</p>
+    </section>
+
+    <section class="tab-panel" id="panel-conversations" hidden>
+      <h2 class="panel-heading">Top talkers</h2>
+      <div class="table-wrap">
+        <table class="data-table" id="talkersTable">
+          <thead><tr><th>IP</th><th>Packets</th><th>Bytes</th><th>Peers</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h2 class="panel-heading">IP conversations</h2>
+      <div class="table-wrap">
+        <table class="data-table" id="convTable">
+          <thead><tr><th>Host A</th><th>Host B</th><th>Packets</th><th>Bytes</th><th>Duration</th><th>Avg bps</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-dns" hidden>
+      <div class="table-wrap">
+        <table class="data-table" id="dnsTable">
+          <thead><tr><th>Frame</th><th>Src</th><th>Dst</th><th>Type</th><th>Query</th><th>Answers</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-tcp" hidden>
+      <div class="table-wrap">
+        <table class="data-table" id="tcpTable">
+          <thead><tr><th>Host A</th><th>Host B</th><th>Packets</th><th>Bytes</th><th>SYN</th><th>FIN</th><th>RST</th><th>Retransmissions</th><th>Duration</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-other" hidden>
+      <h2 class="panel-heading">TLS handshakes (metadata only — traffic is not decrypted)</h2>
+      <div class="table-wrap">
+        <table class="data-table" id="tlsTable">
+          <thead><tr><th>Frame</th><th>Src</th><th>Dst</th><th>Version</th><th>SNI (hostname)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h2 class="panel-heading">ARP</h2>
+      <div class="table-wrap">
+        <table class="data-table" id="arpTable">
+          <thead><tr><th>Frame</th><th>Operation</th><th>Sender IP</th><th>Sender MAC</th><th>Target IP</th><th>Target MAC</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h2 class="panel-heading">ICMP</h2>
+      <div class="table-wrap">
+        <table class="data-table" id="icmpTable">
+          <thead><tr><th>Frame</th><th>Src</th><th>Dst</th><th>Type</th><th>Code</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-packets" hidden>
+      <div class="packet-controls">
+        <input type="text" id="packetSearch" placeholder="Filter by IP, frame #, or info…">
+        <select id="protoFilter">
+          <option value="">All protocols</option>
+        </select>
+        <span class="packet-count" id="packetCount"></span>
+      </div>
+      <div class="packet-layout">
+        <div class="table-wrap packet-table-wrap">
+          <table class="data-table" id="packetTable">
+            <thead>
+              <tr><th>No.</th><th>Time</th><th>Source</th><th>Destination</th><th>Proto</th><th>Len</th><th>Info</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="packet-detail" id="packetDetail">
+          <div class="packet-detail-empty">Select a packet to inspect its raw bytes.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
